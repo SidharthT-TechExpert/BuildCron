@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HireD Keep-Alive Health Monitor</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --card-border: #1f293d;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-green: #10b981;
+      --accent-green-bg: rgba(16, 185, 129, 0.12);
+      --accent-yellow: #f59e0b;
+      --accent-yellow-bg: rgba(245, 158, 11, 0.12);
+      --accent-blue: #3b82f6;
+      --accent-blue-bg: rgba(59, 130, 246, 0.12);
+      --accent-red: #ef4444;
+      --terminal-bg: #050811;
+      --code-font: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 24px 16px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1050px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .title-group h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-group h1 .pulse {
+      width: 12px;
+      height: 12px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--accent-green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.9); }
+    }
+
+    .target-url {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 4px;
+      font-family: var(--code-font);
+    }
+
+    .target-url a {
+      color: var(--accent-blue);
+      text-decoration: none;
+    }
+    .target-url a:hover { text-decoration: underline; }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+    }
+
+    .btn-outline {
+      background: #1f2937;
+      color: var(--text-main);
+      border-color: #374151;
+    }
+    .btn-outline:hover {
+      background: #374151;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Metrics Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 700;
+      width: fit-content;
+    }
+
+    .badge-healthy {
+      background: var(--accent-green-bg);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-sleeping {
+      background: var(--accent-yellow-bg);
+      color: var(--accent-yellow);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge-paused {
+      background: var(--accent-blue-bg);
+      color: var(--accent-blue);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .countdown-val {
+      font-size: 32px;
+      font-weight: 800;
+      font-family: var(--code-font);
+      color: #38bdf8;
+      letter-spacing: -1px;
+    }
+
+    .meta-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--card-border);
+      padding-top: 10px;
+    }
+
+    .meta-item {
+      display: flex;
+      justify-content: space-between;
+    }
+    .meta-item span:last-child {
+      color: var(--text-main);
+      font-weight: 600;
+      font-family: var(--code-font);
+    }
+
+    /* Switch toggle */
+    .switch-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .switch-label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .switch-subtext {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #374151;
+      transition: .3s;
+      border-radius: 28px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--accent-green);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+
+    /* Terminal Logs Box */
+    .logs-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 18px;
+      background: #0d121f;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .logs-title {
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #94a3b8;
+    }
+
+    .logs-terminal {
+      background: var(--terminal-bg);
+      padding: 16px;
+      font-family: var(--code-font);
+      font-size: 12.5px;
+      line-height: 1.6;
+      height: 380px;
+      overflow-y: auto;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Syntax highlight classes */
+    .log-success { color: #34d399; font-weight: 600; }
+    .log-sleeping { color: #fbbf24; font-weight: 600; }
+    .log-paused { color: #60a5fa; font-weight: 600; }
+    .log-retry { color: #f97316; font-weight: 600; }
+    .log-cycle { color: #38bdf8; font-weight: 600; }
+    .log-timestamp { color: #64748b; }
+
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="title-group">
+        <h1><span class="pulse" id="headerPulse"></span> HireD Backend Monitor</h1>
+        <div class="target-url">
+          Endpoint: <a href="https://hired-be.sidhartht.online/api/v1/health" target="_blank" id="targetUrlLink">https://hired-be.sidhartht.online/api/v1/health</a>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-outline" id="btnRefresh">🔄 Refresh</button>
+        <button class="btn btn-primary" id="btnPingNow">⚡ Ping Server Now</button>
+      </div>
+    </header>
+
+    <!-- Metrics Cards -->
+    <div class="grid">
+      <!-- Status Card -->
+      <div class="card">
+        <div class="card-label">Current Server Status</div>
+        <div id="statusBadgeContainer">
+          <div class="status-badge badge-healthy" id="statusBadge">🟢 Checking...</div>
+        </div>
+        <div class="meta-list">
+          <div class="meta-item">
+            <span>Response Latency:</span>
+            <span id="latencyText">--</span>
+          </div>
+          <div class="meta-item">
+            <span>Server Uptime:</span>
+            <span id="uptimeText">--</span>
+          </div>
+          <div class="meta-item">
+            <span>Last Check:</span>
+            <span id="lastCheckText">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Schedule & Countdown Card -->
+      <div class="card">
+        <div class="card-label">Next Scheduled Ping</div>
+        <div class="countdown-val" id="countdownTimer">--:--</div>
+        <div class="meta-list">
+          <div class="meta-item">
+            <span>Normal Interval:</span>
+            <span id="intervalText">Every 13 min</span>
+          </div>
+          <div class="meta-item">
+            <span>Wake-up Retry Interval:</span>
+            <span>Every 30 sec</span>
+          </div>
+          <div class="meta-item">
+            <span>Successful Pings:</span>
+            <span id="successCountText">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 24/7 Mode Toggle Card -->
+      <div class="card">
+        <div class="card-label">Execution Mode</div>
+        <div class="switch-container">
+          <div>
+            <div class="switch-label" id="modeLabel">Off-Hours Scheduled</div>
+            <div class="switch-subtext" id="modeSubtext">Pauses 01:00 - 05:00 IST</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle24x7">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="meta-list">
+          <div class="meta-item">
+            <span>24/7 Continuous:</span>
+            <span id="is247Text">Disabled</span>
+          </div>
+          <div class="meta-item">
+            <span>Off-Hours Window:</span>
+            <span id="offHoursText">01:00 - 05:00 (Asia/Kolkata)</span>
+          </div>
+          <div class="meta-item">
+            <span>Live Sync:</span>
+            <span style="color: #34d399;">Active (.env synced)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Terminal Activity Box -->
+    <div class="logs-card">
+      <div class="logs-header">
+        <div class="logs-title">
+          <span>📜</span> Live Activity & Wake-Up Terminal
+        </div>
+        <div style="font-size: 12px; color: #64748b;">
+          Auto-refreshing every 2s
+        </div>
+      </div>
+      <div class="logs-terminal" id="terminalLogs">Loading activity logs...</div>
+    </div>
+
+    <footer>
+      Render Keep-Alive Bot • Running natively on Node.js • Zero dependencies
+    </footer>
+  </div>
+
+  <script>
+    let nextCheckEpochMs = null;
+    let countdownInterval = null;
+
+    function formatTimeRemaining(ms) {
+      if (!ms || ms <= 0) return '00:00';
+      const totalSec = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSec / 60);
+      const secs = totalSec % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function highlightLogs(text) {
+      return text
+        .replace(/\[(\d{2}\/\d{2}\/\d{4}[^\]]*)\]/g, '<span class="log-timestamp">[$1]</span>')
+        .replace(/\[SUCCESS\]/g, '<span class="log-success">[SUCCESS]</span>')
+        .replace(/\[SLEEPING[^\]]*\]/g, '<span class="log-sleeping">$&</span>')
+        .replace(/\[OFF-HOURS\]/g, '<span class="log-paused">[OFF-HOURS]</span>')
+        .replace(/\[RETRY\]/g, '<span class="log-retry">[RETRY]</span>')
+        .replace(/\[CYCLE START\]/g, '<span class="log-cycle">[CYCLE START]</span>')
+        .replace(/\[CYCLE COMPLETE\]/g, '<span class="log-cycle">[CYCLE COMPLETE]</span>');
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+
+        // Update target URL link
+        document.getElementById('targetUrlLink').innerText = data.targetUrl;
+        document.getElementById('targetUrlLink').href = data.targetUrl;
+
+        // Update status badge
+        const badge = document.getElementById('statusBadge');
+        const pulse = document.getElementById('headerPulse');
+
+        if (data.status === 'healthy') {
+          badge.className = 'status-badge badge-healthy';
+          badge.innerHTML = '🟢 Healthy & Awake';
+          pulse.style.background = '#10b981';
+          pulse.style.boxShadow = '0 0 12px #10b981';
+        } else if (data.status === 'sleeping') {
+          badge.className = 'status-badge badge-sleeping';
+          badge.innerHTML = `🟡 Spinning Up (Attempt #${data.currentAttempt})`;
+          pulse.style.background = '#f59e0b';
+          pulse.style.boxShadow = '0 0 12px #f59e0b';
+        } else if (data.status === 'paused') {
+          badge.className = 'status-badge badge-paused';
+          badge.innerHTML = '⏸️ Paused (Off-Hours)';
+          pulse.style.background = '#3b82f6';
+          pulse.style.boxShadow = '0 0 12px #3b82f6';
+        } else {
+          badge.className = 'status-badge badge-sleeping';
+          badge.innerHTML = '⚡ Checking...';
+        }
+
+        // Metrics
+        document.getElementById('latencyText').innerText = data.lastResponseTimeMs ? `${data.lastResponseTimeMs}ms` : '--';
+        document.getElementById('uptimeText').innerText = data.serverUptime ? `${Math.round(data.serverUptime)}s` : '--';
+        document.getElementById('lastCheckText').innerText = data.lastCheckTime || 'None yet';
+        document.getElementById('intervalText').innerText = `Every ${data.intervalMinutes} min`;
+        document.getElementById('successCountText').innerText = data.totalSuccessCount || 0;
+
+        // Mode switch
+        const toggle = document.getElementById('toggle24x7');
+        toggle.checked = !!data.enable24x7;
+        document.getElementById('is247Text').innerText = data.enable24x7 ? 'Enabled (Always Active)' : 'Disabled';
+        document.getElementById('modeLabel').innerText = data.enable24x7 ? '24/7 Active Mode' : 'Off-Hours Scheduled';
+        document.getElementById('modeSubtext').innerText = data.enable24x7
+          ? 'Runs continuously 24/7 without stopping'
+          : `Pauses ${String(data.pauseStartHour).padStart(2,'0')}:00 - ${String(data.pauseEndHour).padStart(2,'0')}:00`;
+        document.getElementById('offHoursText').innerText = `${String(data.pauseStartHour).padStart(2,'0')}:00 - ${String(data.pauseEndHour).padStart(2,'0')}:00 (${data.timezone})`;
+
+        // Countdown epoch
+        if (data.nextCheckEpochMs) {
+          nextCheckEpochMs = data.nextCheckEpochMs;
+        }
+
+        // Logs
+        if (Array.isArray(data.logs)) {
+          const terminal = document.getElementById('terminalLogs');
+          const isAtBottom = terminal.scrollHeight - terminal.clientHeight <= terminal.scrollTop + 50;
+          terminal.innerHTML = highlightLogs(data.logs.join('\n'));
+          if (isAtBottom) {
+            terminal.scrollTop = terminal.scrollHeight;
+          }
+        }
+      } catch (err) {
+        console.error('Failed fetching status:', err);
+      }
+    }
+
+    // Toggle 24/7 switch event
+    document.getElementById('toggle24x7').addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      try {
+        await fetch('/api/toggle-24-7', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enable24x7: enabled })
+        });
+        await fetchStatus();
+      } catch (err) {
+        alert('Failed updating 24/7 mode: ' + err.message);
+      }
+    });
+
+    // Ping Now button event
+    document.getElementById('btnPingNow').addEventListener('click', async () => {
+      const btn = document.getElementById('btnPingNow');
+      btn.disabled = true;
+      btn.innerText = '⏳ Pinging...';
+      try {
+        await fetch('/api/ping-now', { method: 'POST' });
+        await fetchStatus();
+      } catch (err) {
+        alert('Ping failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '⚡ Ping Server Now';
+      }
+    });
+
+    document.getElementById('btnRefresh').addEventListener('click', () => fetchStatus());
+
+    // Timer tick every second
+    setInterval(() => {
+      if (!nextCheckEpochMs) return;
+      const diff = nextCheckEpochMs - Date.now();
+      document.getElementById('countdownTimer').innerText = formatTimeRemaining(diff);
+    }, 1000);
+
+    // Initial load and periodic poll
+    fetchStatus();
+    setInterval(fetchStatus, 2500);
+  </script>
+</body>
+</html>

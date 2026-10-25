@@ -1,0 +1,22 @@
+{
+  "name": "render-health-cron",
+  "version": "1.0.0",
+  "description": "Keep-alive cron monitor for Render backend with wake-up retry and configurable off-hours",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "cron": "node cron.js",
+    "pm2:start": "npx pm2 start server.js --name health-dashboard",
+    "pm2:stop": "npx pm2 stop health-dashboard",
+    "pm2:logs": "npx pm2 logs health-dashboard"
+  },
+  "keywords": [
+    "cron",
+    "health-check",
+    "keep-alive",
+    "render"
+  ],
+  "author": "",
+  "license": "ISC"
+}
